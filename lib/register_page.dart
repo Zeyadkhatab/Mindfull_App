@@ -20,28 +20,26 @@ class _RegisterPageState extends State<RegisterPage> {
   // Variables to store values
   String firstname = "";
   String lastname = "";
-  String username = "";
+  String phoneNumber = "";
   String email = "";
   String password = "";
   String confirmPassword = "";
-
-
+  String errorMessage = '';
+  bool showError = false;
 
   // Controllers (must NOT be inside build)
   final TextEditingController firstnameController = TextEditingController();
   final TextEditingController lastnameController = TextEditingController();
-  final TextEditingController usernameController = TextEditingController();
+  final TextEditingController phoneNumberController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
-
-
 
   @override
   void dispose() {
     firstnameController.dispose();
     lastnameController.dispose();
-    usernameController.dispose();
+    phoneNumberController.dispose();
     emailController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
@@ -84,7 +82,12 @@ class _RegisterPageState extends State<RegisterPage> {
                 controller: firstnameController,
                 hint: "Firstname",
                 icon: Icons.person_outline_outlined,
-                onChanged: (value) => setState(() => firstname = value),
+                onChanged: (value) {
+                  setState(() => firstname = value);
+                  if (showError) {
+                    setState(() => showError = false);
+                  }
+                },
               ),
 
               const SizedBox(height: 30),
@@ -94,17 +97,27 @@ class _RegisterPageState extends State<RegisterPage> {
                 controller: lastnameController,
                 hint: "Lastname",
                 icon: Icons.person_outline_outlined,
-                onChanged: (value) => setState(() => lastname = value),
+                onChanged: (value) {
+                  setState(() => lastname = value);
+                  if (showError) {
+                    setState(() => showError = false);
+                  }
+                },
               ),
 
               const SizedBox(height: 30),
 
-              /// USERNAME
+              /// PHONE NUMBER
               CustomTextField(
-                controller: usernameController,
-                hint: "Username",
-                icon: Icons.person_outline_outlined,
-                onChanged: (value) => setState(() => username = value),
+                controller: phoneNumberController,
+                hint: "Phone Number",
+                icon: Icons.phone_outlined,
+                onChanged: (value) {
+                  setState(() => phoneNumber = value);
+                  if (showError) {
+                    setState(() => showError = false);
+                  }
+                },
               ),
 
               const SizedBox(height: 30),
@@ -114,7 +127,12 @@ class _RegisterPageState extends State<RegisterPage> {
                 controller: emailController,
                 hint: "Email",
                 icon: Icons.email_outlined,
-                onChanged: (value) => setState(() => email = value),
+                onChanged: (value) {
+                  setState(() => email = value);
+                  if (showError) {
+                    setState(() => showError = false);
+                  }
+                },
               ),
 
               const SizedBox(height: 30),
@@ -125,7 +143,12 @@ class _RegisterPageState extends State<RegisterPage> {
                 hint: "Password",
                 icon: Icons.lock_outline,
                 obscureText: true,
-                onChanged: (value) => setState(() => password = value),
+                onChanged: (value) {
+                  setState(() => password = value);
+                  if (showError) {
+                    setState(() => showError = false);
+                  }
+                },
               ),
 
               const SizedBox(height: 30),
@@ -136,21 +159,182 @@ class _RegisterPageState extends State<RegisterPage> {
                 hint: "Confirm Password",
                 icon: Icons.lock_outline,
                 obscureText: true,
-                onChanged: (value) => setState(() => confirmPassword = value),
+                onChanged: (value) {
+                  setState(() => confirmPassword = value);
+                  if (showError) {
+                    setState(() => showError = false);
+                  }
+                },
               ),
 
-              const SizedBox(height: 40),
+              const SizedBox(height: 20),
+
+              // Error Message Display
+              if (showError)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(top: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        color: Colors.red.shade700,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          errorMessage,
+                          style: GoogleFonts.inter(
+                            color: Colors.red.shade700,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 20),
 
               /// CREATE BUTTON
               GestureDetector(
                 onTap: () async {
-                try{
-                  final newUser =  await  _auth.createUserWithEmailAndPassword(email: email, password: password);
-                  Navigator.pushNamed(context, '/chat');
-                }
-                catch(e){
-                  print(e);
-                }
+                  // Validation
+                  if (firstname.isEmpty) {
+                    setState(() {
+                      errorMessage = 'Please enter your first name';
+                      showError = true;
+                    });
+                    return;
+                  }
+
+                  if (lastname.isEmpty) {
+                    setState(() {
+                      errorMessage = 'Please enter your last name';
+                      showError = true;
+                    });
+                    return;
+                  }
+
+                  if (phoneNumber.isEmpty) {
+                    setState(() {
+                      errorMessage = 'Please enter your phone number';
+                      showError = true;
+                    });
+                    return;
+                  }
+
+                  if (email.isEmpty) {
+                    setState(() {
+                      errorMessage = 'Please enter your email';
+                      showError = true;
+                    });
+                    return;
+                  }
+
+                  if (password.isEmpty) {
+                    setState(() {
+                      errorMessage = 'Please enter a password';
+                      showError = true;
+                    });
+                    return;
+                  }
+
+                  if (password.length < 6) {
+                    setState(() {
+                      errorMessage = 'Password must be at least 6 characters';
+                      showError = true;
+                    });
+                    return;
+                  }
+
+                  if (confirmPassword.isEmpty) {
+                    setState(() {
+                      errorMessage = 'Please confirm your password';
+                      showError = true;
+                    });
+                    return;
+                  }
+
+                  if (password != confirmPassword) {
+                    setState(() {
+                      errorMessage = 'Passwords do not match';
+                      showError = true;
+                    });
+                    return;
+                  }
+
+                  try {
+                    // Show loading indicator
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+
+                    final newUser = await _auth.createUserWithEmailAndPassword(
+                      email: email.trim(),
+                      password: password.trim(),
+                    );
+
+                    // Update display name with firstname and lastname
+                    if (newUser.user != null) {
+                      await newUser.user!.updateDisplayName('$firstname $lastname');
+                    }
+
+                    // Close loading dialog
+                    if (mounted) Navigator.pop(context);
+
+                    // Navigate to chat
+                    if (mounted) {
+                      Navigator.pushReplacementNamed(context, '/chat');
+                    }
+                  } on FirebaseAuthException catch (e) {
+                    // Close loading dialog
+                    if (mounted) Navigator.pop(context);
+
+                    String message = '';
+
+                    switch (e.code) {
+                      case 'email-already-in-use':
+                        message = 'This email is already registered';
+                        break;
+                      case 'invalid-email':
+                        message = 'Invalid email format';
+                        break;
+                      case 'weak-password':
+                        message = 'Password is too weak';
+                        break;
+                      case 'operation-not-allowed':
+                        message = 'Registration is currently disabled';
+                        break;
+                      default:
+                        message = e.message ?? 'Registration failed';
+                    }
+
+                    setState(() {
+                      errorMessage = message;
+                      showError = true;
+                    });
+                  } catch (e) {
+                    // Close loading dialog
+                    if (mounted) Navigator.pop(context);
+
+                    print(e);
+                    setState(() {
+                      errorMessage = 'An error occurred. Please try again';
+                      showError = true;
+                    });
+                  }
                 },
                 child: Container(
                   width: 199,
