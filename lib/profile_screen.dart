@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -10,10 +11,15 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _auth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance;
   int _selectedIndex = 3;
 
- late String userName ;
-  late String userEmail ;
+  String userName = 'Loading...';
+  String userEmail = 'Loading...';
+  String phoneNumber = 'Loading...';
+  String memberSince = 'Loading...';
+  String firstName = '';
+  String lastName = '';
 
   @override
   void initState() {
@@ -21,18 +27,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserData();
   }
 
-  void _loadUserData() {
+  Future<void> _loadUserData() async {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        setState(() {
-          userEmail = user.email ?? 'No email';
-          userName = user.displayName ?? 'User';
-        });
+        // Get data from Firestore
+        DocumentSnapshot userDoc = await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists) {
+          Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+
+          setState(() {
+            firstName = userData['firstName'] ?? '';
+            lastName = userData['lastName'] ?? '';
+            userName = userData['fullName'] ?? '${firstName} ${lastName}';
+            userEmail = userData['email'] ?? user.email ?? 'No email';
+            phoneNumber = userData['phoneNumber'] ?? 'No phone';
+
+            // Format member since date
+            if (userData['createdAt'] != null) {
+              Timestamp timestamp = userData['createdAt'];
+              DateTime date = timestamp.toDate();
+              memberSince = '${_getMonthName(date.month)} ${date.year}';
+            } else {
+              memberSince = 'Recently joined';
+            }
+          });
+        } else {
+          // If no Firestore data, use Firebase Auth data
+          setState(() {
+            userEmail = user.email ?? 'No email';
+            userName = user.displayName ?? 'User';
+            phoneNumber = 'Not provided';
+            memberSince = 'Recently joined';
+          });
+        }
       }
     } catch (e) {
-      print(e);
+      print('Error loading user data: $e');
+      setState(() {
+        userName = 'Error loading data';
+        userEmail = 'Error';
+        phoneNumber = 'Error';
+        memberSince = 'Error';
+      });
     }
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return months[month - 1];
   }
 
   Future<void> _handleLogout() async {
@@ -101,10 +151,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 end: Alignment.bottomRight,
                               ),
                             ),
-                            child: const Icon(
-                              Icons.person,
-                              size: 48,
-                              color: Colors.white,
+                            child: Center(
+                              child: Text(
+                                firstName.isNotEmpty && lastName.isNotEmpty
+                                    ? '${firstName[0]}${lastName[0]}'.toUpperCase()
+                                    : '?',
+                                style: const TextStyle(
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
                           Positioned(
@@ -170,15 +227,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildInfoCard(
                         Icons.phone_outlined,
                         'Phone',
-                        '+1 234 567 8900',
+                        phoneNumber,
                       ),
 
                       const SizedBox(height: 16),
 
                       _buildInfoCard(
-                        Icons.location_on_outlined,
-                        'Location',
-                        'New York, USA',
+                        Icons.person_outline,
+                        'First Name',
+                        firstName.isEmpty ? 'Not provided' : firstName,
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      _buildInfoCard(
+                        Icons.person_outline,
+                        'Last Name',
+                        lastName.isEmpty ? 'Not provided' : lastName,
                       ),
 
                       const SizedBox(height: 16),
@@ -186,7 +251,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildInfoCard(
                         Icons.calendar_today_outlined,
                         'Member Since',
-                        'January 2024',
+                        memberSince,
                       ),
 
                       const SizedBox(height: 32),
@@ -195,6 +260,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ElevatedButton.icon(
                         onPressed: () {
                           // TODO: Navigate to edit profile
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Edit profile feature coming soon!'),
+                              backgroundColor: Colors.blue,
+                            ),
+                          );
                         },
                         icon: const Icon(Icons.edit_outlined, size: 18),
                         label: const Text(
@@ -221,6 +292,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ElevatedButton.icon(
                         onPressed: () {
                           // TODO: Navigate to settings
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Settings feature coming soon!'),
+                              backgroundColor: Colors.blue,
+                            ),
+                          );
                         },
                         icon: const Icon(Icons.settings_outlined, size: 18),
                         label: const Text(
@@ -438,7 +515,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 : null,
             child: Icon(
               icon,
-              color: isSelected ? Colors.white : Colors.lightBlue,
+              color: isSelected ? Colors.white : const Color(0xFF90A4AE),
               size: 24,
             ),
           ),
