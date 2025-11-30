@@ -515,7 +515,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 : null,
             child: Icon(
               icon,
-              color: isSelected ? Colors.white : const Color(0xFF90A4AE),
+              color: isSelected ? Colors.white : Colors.lightBlue,
               size: 24,
             ),
           ),
