@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:mindful/login_page.dart';
 import 'package:mindful/widgets/custom_text_field.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';  // Add this import
 
 import 'app_colors.dart';
 
@@ -15,7 +16,8 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
 
-  final _auth = FirebaseAuth.instance; // this is a request to register a new user
+  final _auth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance;  // Add Firestore instance
 
   // Variables to store values
   String firstname = "";
@@ -27,7 +29,7 @@ class _RegisterPageState extends State<RegisterPage> {
   String errorMessage = '';
   bool showError = false;
 
-  // Controllers (must NOT be inside build)
+  // Controllers
   final TextEditingController firstnameController = TextEditingController();
   final TextEditingController lastnameController = TextEditingController();
   final TextEditingController phoneNumberController = TextEditingController();
@@ -281,14 +283,31 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                     );
 
+                    // Create user with Firebase Authentication
                     final newUser = await _auth.createUserWithEmailAndPassword(
                       email: email.trim(),
                       password: password.trim(),
                     );
 
-                    // Update display name with firstname and lastname
+                    // Save user data to Firestore
                     if (newUser.user != null) {
+                      String userId = newUser.user!.uid;
+
+                      // Update display name
                       await newUser.user!.updateDisplayName('$firstname $lastname');
+
+                      // Save to Firestore
+                      await _firestore.collection('users').doc(userId).set({
+                        'firstName': firstname.trim(),
+                        'lastName': lastname.trim(),
+                        'phoneNumber': phoneNumber.trim(),
+                        'email': email.trim(),
+                        'fullName': '${firstname.trim()} ${lastname.trim()}',
+                        'createdAt': FieldValue.serverTimestamp(),
+                        'userId': userId,
+                      });
+
+                      print('User data saved to Firestore successfully!');
                     }
 
                     // Close loading dialog
@@ -329,7 +348,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     // Close loading dialog
                     if (mounted) Navigator.pop(context);
 
-                    print(e);
+                    print('Error: $e');
                     setState(() {
                       errorMessage = 'An error occurred. Please try again';
                       showError = true;
