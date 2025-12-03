@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mindful/profile_screen.dart';
 import 'package:mindful/resource_screen.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'chat_screen.dart';
 
