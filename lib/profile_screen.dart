@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -10,8 +9,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final _auth = FirebaseAuth.instance;
-  final _firestore = FirebaseFirestore.instance;
+  final supabase = Supabase.instance.client;
   int _selectedIndex = 3;
 
   String userName = 'Loading...';
@@ -29,40 +27,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadUserData() async {
     try {
-      final user = _auth.currentUser;
+      final user = supabase.auth.currentUser;
       if (user != null) {
-        // Get data from Firestore
-        DocumentSnapshot userDoc = await _firestore
-            .collection('users')
-            .doc(user.uid)
-            .get();
+        final data = await supabase
+            .from('users')
+            .select()
+            .eq('id', user.id)
+            .maybeSingle();
 
-        if (userDoc.exists) {
-          Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
-
+        if (data == null) {
+          // User not found in DB
           setState(() {
-            firstName = userData['firstName'] ?? '';
-            lastName = userData['lastName'] ?? '';
-            userName = userData['fullName'] ?? '${firstName} ${lastName}';
-            userEmail = userData['email'] ?? user.email ?? 'No email';
-            phoneNumber = userData['phoneNumber'] ?? 'No phone';
+            userEmail = user.email ?? 'No email';
+            userName = 'User';
+            phoneNumber = 'Not provided';
+            memberSince = 'Recently joined';
+          });
+        } else {
+          setState(() {
+            firstName = data['first_name'] ?? '';
+            lastName = data['last_name'] ?? '';
+            userName = data['full_name'] ?? '${firstName} ${lastName}';
+            userEmail = data['email'] ?? user.email ?? 'No email';
+            phoneNumber = data['phone_number'] ?? 'Not provided';
 
-            // Format member since date
-            if (userData['createdAt'] != null) {
-              Timestamp timestamp = userData['createdAt'];
-              DateTime date = timestamp.toDate();
+            if (data['created_at'] != null) {
+              final date = DateTime.parse(data['created_at']);
               memberSince = '${_getMonthName(date.month)} ${date.year}';
             } else {
               memberSince = 'Recently joined';
             }
-          });
-        } else {
-          // If no Firestore data, use Firebase Auth data
-          setState(() {
-            userEmail = user.email ?? 'No email';
-            userName = user.displayName ?? 'User';
-            phoneNumber = 'Not provided';
-            memberSince = 'Recently joined';
           });
         }
       }
@@ -87,12 +81,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _handleLogout() async {
     try {
-      await _auth.signOut();
+      await supabase.auth.signOut();
       if (mounted) {
         Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       }
     } catch (e) {
-      print(e);
+      print('Logout error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Error logging out. Please try again.'),
@@ -142,10 +136,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             height: 112,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: LinearGradient(
+                              gradient: const LinearGradient(
                                 colors: [
-                                  const Color(0xFF42A5F5),
-                                  const Color(0xFF1976D2),
+                                  Color(0xFF42A5F5),
+                                  Color(0xFF1976D2),
                                 ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
@@ -221,33 +215,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         'Email',
                         userEmail,
                       ),
-
                       const SizedBox(height: 16),
-
                       _buildInfoCard(
                         Icons.phone_outlined,
                         'Phone',
                         phoneNumber,
                       ),
-
                       const SizedBox(height: 16),
-
                       _buildInfoCard(
                         Icons.person_outline,
                         'First Name',
                         firstName.isEmpty ? 'Not provided' : firstName,
                       ),
-
                       const SizedBox(height: 16),
-
                       _buildInfoCard(
                         Icons.person_outline,
                         'Last Name',
                         lastName.isEmpty ? 'Not provided' : lastName,
                       ),
-
                       const SizedBox(height: 16),
-
                       _buildInfoCard(
                         Icons.calendar_today_outlined,
                         'Member Since',
@@ -259,7 +245,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       // Edit Profile Button
                       ElevatedButton.icon(
                         onPressed: () {
-                          // TODO: Navigate to edit profile
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Edit profile feature coming soon!'),
@@ -288,42 +273,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                       const SizedBox(height: 12),
 
-                      // Settings Button
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          // TODO: Navigate to settings
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Settings feature coming soon!'),
-                              backgroundColor: Colors.blue,
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.settings_outlined, size: 18),
-                        label: const Text(
-                          'Settings',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE8F4F8),
-                          foregroundColor: const Color(0xFF424242),
-                          minimumSize: const Size(double.infinity, 56),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 0,
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
                       // Logout Button
                       OutlinedButton.icon(
                         onPressed: () {
-                          // Show confirmation dialog
                           showDialog(
                             context: context,
                             builder: (BuildContext context) {
@@ -393,30 +345,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildNavItem(
-                    icon: Icons.chat_bubble,
-                    label: 'Chat',
-                    index: 0,
-                    isSelected: _selectedIndex == 0,
-                  ),
-                  _buildNavItem(
-                    icon: Icons.emoji_emotions_outlined,
-                    label: 'Emotion',
-                    index: 1,
-                    isSelected: _selectedIndex == 1,
-                  ),
-                  _buildNavItem(
-                    icon: Icons.menu_book_outlined,
-                    label: 'Resources',
-                    index: 2,
-                    isSelected: _selectedIndex == 2,
-                  ),
-                  _buildNavItem(
-                    icon: Icons.person_outline,
-                    label: 'Profile',
-                    index: 3,
-                    isSelected: _selectedIndex == 3,
-                  ),
+                  _buildNavItem(icon: Icons.chat_bubble, label: 'Chat', index: 0),
+                  _buildNavItem(icon: Icons.emoji_emotions_outlined, label: 'Emotion', index: 1),
+                  _buildNavItem(icon: Icons.menu_book_outlined, label: 'Resources', index: 2),
+                  _buildNavItem(icon: Icons.person_outline, label: 'Profile', index: 3, isSelected: true),
                 ],
               ),
             ),
@@ -432,10 +364,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFFE8F4F8),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFB3E5FC),
-          width: 2,
-        ),
+        border: Border.all(color: const Color(0xFFB3E5FC), width: 2),
       ),
       child: Row(
         children: [
@@ -446,33 +375,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: Color(0xFFE3F2FD),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: const Color(0xFF1976D2),
-            ),
+            child: Icon(icon, size: 20, color: const Color(0xFF1976D2)),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
+                Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                 const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ),
-                ),
+                Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87)),
               ],
             ),
           ),
@@ -489,9 +401,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) {
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _selectedIndex = index;
-        });
+        setState(() => _selectedIndex = index);
 
         // Navigate based on selection
         if (index == 0) {
@@ -508,16 +418,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             padding: isSelected ? const EdgeInsets.all(8) : null,
             decoration: isSelected
-                ? BoxDecoration(
-              color: Colors.black87,
-              borderRadius: BorderRadius.circular(8),
-            )
+                ? BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(8))
                 : null,
-            child: Icon(
-              icon,
-              color: isSelected ? Colors.white : Colors.lightBlue,
-              size: 24,
-            ),
+            child: Icon(icon, color: isSelected ? Colors.white : Colors.lightBlue, size: 24),
           ),
           const SizedBox(height: 4),
           Text(

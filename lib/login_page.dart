@@ -7,7 +7,7 @@ import 'package:mindful/register_page.dart';
 import 'package:mindful/widgets/custom_text_field.dart';
 import 'package:mindful/widgets/logo_text.dart';
 import 'chat_screen.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -21,11 +21,11 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
-  final _auth = FirebaseAuth.instance;
+  final supabase = Supabase.instance.client;
   String email = '';
   String password = '';
-  String errorMessage = ''; // Add error message variable
-  bool showError = false; // Add flag to show/hide error
+  String errorMessage = '';
+  bool showError = false;
 
   @override
   void dispose() {
@@ -79,7 +79,7 @@ class _LoginPageState extends State<LoginPage> {
 
                   const SizedBox(height: 40),
 
-                  /// USERNAME
+                  /// EMAIL
                   CustomTextField(
                     controller: emailController,
                     hint: "Email",
@@ -150,11 +150,42 @@ class _LoginPageState extends State<LoginPage> {
 
                   Align(
                     alignment: Alignment.centerRight,
-                    child: Text(
-                      'Forgot Password ?',
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                    child: GestureDetector(
+                      onTap: () async {
+                        // Handle password reset
+                        if (email.isEmpty) {
+                          setState(() {
+                            errorMessage = 'Please enter your email first';
+                            showError = true;
+                          });
+                          return;
+                        }
+
+                        try {
+                          await supabase.auth.resetPasswordForEmail(
+                            email.trim(),
+                          );
+
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Password reset email sent! Check your inbox'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            _showErrorSnackBar('Failed to send reset email');
+                          }
+                        }
+                      },
+                      child: Text(
+                        'Forgot Password ?',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ),
@@ -190,7 +221,7 @@ class _LoginPageState extends State<LoginPage> {
                       }
 
                       try {
-                        // Show loading indicator (optional)
+                        // Show loading indicator
                         showDialog(
                           context: context,
                           barrierDismissible: false,
@@ -199,7 +230,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         );
 
-                        final userCredential = await _auth.signInWithEmailAndPassword(
+                        final response = await supabase.auth.signInWithPassword(
                           email: email.trim(),
                           password: password.trim(),
                         );
@@ -207,48 +238,33 @@ class _LoginPageState extends State<LoginPage> {
                         // Close loading dialog
                         if (mounted) Navigator.pop(context);
 
-                        if (userCredential.user != null) {
+                        if (response.user != null) {
                           // Login successful
                           if (mounted) {
                             Navigator.pushNamed(context, '/chat');
                           }
                         }
-                      } on FirebaseAuthException catch (e) {
+                      } on AuthException catch (e) {
                         // Close loading dialog
                         if (mounted) Navigator.pop(context);
 
                         String message = '';
 
-                        print('Firebase Error Code: ${e.code}'); // Debug print
-                        print('Firebase Error Message: ${e.message}'); // Debug print
+                        print('Supabase Auth Error: ${e.message}'); // Debug print
+                        print('Status Code: ${e.statusCode}'); // Debug print
 
-                        switch (e.code) {
-                          case 'user-not-found':
-                            message = 'No user found with this email';
-                            break;
-                          case 'wrong-password':
-                            message = 'Incorrect password. Please try again';
-                            break;
-                          case 'invalid-email':
-                            message = 'Invalid email format';
-                            break;
-                          case 'user-disabled':
-                            message = 'This account has been disabled';
-                            break;
-                          case 'invalid-credential':
-                            message = 'Invalid email or password';
-                            break;
-                          case 'too-many-requests':
-                            message = 'Too many attempts. Please try again in 1-2 hours or reset your password';
-                            break;
-                          case 'network-request-failed':
-                            message = 'Network error. Check your connection';
-                            break;
-                          case 'channel-error':
-                            message = 'Connection error. Please check your internet';
-                            break;
-                          default:
-                            message = 'Error: ${e.message ?? "Login failed"}';
+                        // Handle different Supabase auth errors
+                        if (e.message.toLowerCase().contains('invalid login credentials') ||
+                            e.message.toLowerCase().contains('invalid email or password')) {
+                          message = 'Invalid email or password';
+                        } else if (e.message.toLowerCase().contains('email not confirmed')) {
+                          message = 'Please verify your email before logging in';
+                        } else if (e.message.toLowerCase().contains('user not found')) {
+                          message = 'No account found with this email';
+                        } else if (e.statusCode == 429) {
+                          message = 'Too many attempts. Please try again later';
+                        } else {
+                          message = e.message;
                         }
 
                         setState(() {
@@ -314,16 +330,30 @@ class _LoginPageState extends State<LoginPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Ionicons.logo_facebook,
-                        color: Colors.blue.shade600,
-                        size: 30,
+                      GestureDetector(
+                        onTap: () async {
+                          // TODO: Implement Facebook OAuth with Supabase
+                          // await supabase.auth.signInWithOAuth(Provider.facebook);
+                          _showErrorSnackBar('Facebook login coming soon!');
+                        },
+                        child: Icon(
+                          Ionicons.logo_facebook,
+                          color: Colors.blue.shade600,
+                          size: 30,
+                        ),
                       ),
                       const SizedBox(width: 30),
-                      Icon(
-                        Ionicons.logo_google,
-                        color: Colors.red.shade400,
-                        size: 30,
+                      GestureDetector(
+                        onTap: () async {
+                          // TODO: Implement Google OAuth with Supabase
+                          // await supabase.auth.signInWithOAuth(Provider.google);
+                          _showErrorSnackBar('Google login coming soon!');
+                        },
+                        child: Icon(
+                          Ionicons.logo_google,
+                          color: Colors.red.shade400,
+                          size: 30,
+                        ),
                       ),
                     ],
                   ),

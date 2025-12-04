@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mindful/profile_screen.dart';
 import 'package:mindful/resource_screen.dart';
-
-import 'face_detection.dart';
+import 'package:mindful/face_detection.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MindfulAIScreen extends StatefulWidget {
   const MindfulAIScreen({Key? key}) : super(key: key);
@@ -13,31 +12,47 @@ class MindfulAIScreen extends StatefulWidget {
 }
 
 class _MindfulAIScreenState extends State<MindfulAIScreen> {
-  final _auth = FirebaseAuth.instance;
-  late User signedInUser;
+  final supabase = Supabase.instance.client;
   final TextEditingController _messageController = TextEditingController();
   int _selectedIndex = 0;
 
+  late Map<String, dynamic> currentUser;
 
-  void initstate(){
+  @override
+  void initState() {
     super.initState();
     getCurrentUser();
   }
 
-
-  void getCurrentUser(){
-    try{
-      final user = _auth.currentUser; // the variable user will be zero if there isn't any user registered
-      if(user != null){
-        signedInUser = user;
-        print(signedInUser.email);
+  void getCurrentUser() {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user != null) {
+        currentUser = {
+          'id': user.id,
+          'email': user.email,
+        };
+        print("Logged in as: ${currentUser['email']}");
       }
-    }
-    catch(e){
-      print(e);
+    } catch (e) {
+      print("Error getting current user: $e");
     }
   }
 
+  Future<void> sendMessage(String message) async {
+    if (message.trim().isEmpty) return;
+
+    try {
+      await supabase.from('messages').insert({
+        'user_id': currentUser['id'],
+        'message': message.trim(),
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      _messageController.clear();
+    } catch (e) {
+      print("Failed to send message: $e");
+    }
+  }
 
   @override
   void dispose() {
@@ -107,10 +122,45 @@ class _MindfulAIScreenState extends State<MindfulAIScreen> {
               ),
             ),
 
-            // Main Content Area (Empty for conversation)
+            // Messages List
             Expanded(
-              child: Container(
-                color: Colors.grey[100],
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: supabase
+                    .from('messages')
+                    .stream(primaryKey: ['id'])
+                    .order('created_at', ascending: true)
+                    .execute()
+                    .map((maps) => List<Map<String, dynamic>>.from(maps)),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final messages = snapshot.data!;
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final msg = messages[index];
+                      final isMe = msg['user_id'] == currentUser['id'];
+                      return Align(
+                        alignment:
+                        isMe ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isMe ? Colors.blue[200] : Colors.grey[300],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            msg['message'],
+                            style: const TextStyle(color: Colors.black87),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
 
@@ -137,25 +187,17 @@ class _MindfulAIScreenState extends State<MindfulAIScreen> {
                     Expanded(
                       child: TextField(
                         controller: _messageController,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           hintText: 'Type a message',
-                          hintStyle: TextStyle(
-                            color: Colors.black87,
-                            fontSize: 16,
-                          ),
                           border: InputBorder.none,
-                        ),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black87,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.mic_none,
-                      color: Colors.black87,
-                      size: 24,
+                    IconButton(
+                      icon: const Icon(Icons.send),
+                      onPressed: () {
+                        sendMessage(_messageController.text);
+                      },
                     ),
                   ],
                 ),
@@ -178,7 +220,7 @@ class _MindfulAIScreenState extends State<MindfulAIScreen> {
                     icon: Icons.chat,
                     label: 'Chat',
                     index: 0,
-                    isSelected: true,
+                    isSelected: _selectedIndex == 0,
                   ),
                   _buildNavItem(
                     icon: Icons.emoji_emotions_outlined,

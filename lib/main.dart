@@ -3,13 +3,17 @@ import 'package:mindful/resource_screen.dart';
 import 'package:mindful/splash_screen.dart';
 import 'package:mindful/login_page.dart';
 import 'package:mindful/register_page.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'chat_screen.dart';
 import 'face_detection.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await Supabase.initialize(
+    url: 'https://lerzabsngwcxgmbvfsyp.supabase.co', // your Supabase project URL
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxlcnphYnNuZ3djeGdtYnZmc3lwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4NDczMjMsImV4cCI6MjA4MDQyMzMyM30.LbIA8bwu5P63aGxi-k5IDByKjzuEgRF6Z8cytAPtoLE',               // your Supabase anon/public key
+  );
+
   runApp(const MyApp());
 }
 

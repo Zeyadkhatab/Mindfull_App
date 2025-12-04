@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mindful/login_page.dart';
 import 'package:mindful/widgets/custom_text_field.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';  // Add this import
-
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_colors.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -15,11 +13,9 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
+  final supabase = Supabase.instance.client;
 
-  final _auth = FirebaseAuth.instance;
-  final _firestore = FirebaseFirestore.instance;  // Add Firestore instance
-
-  // Variables to store values
+  // Variables
   String firstname = "";
   String lastname = "";
   String phoneNumber = "";
@@ -46,6 +42,71 @@ class _RegisterPageState extends State<RegisterPage> {
     passwordController.dispose();
     confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  Future<void> registerUser() async {
+    try {
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // 1️⃣ Create user in Supabase Auth
+      final AuthResponse response = await supabase.auth.signUp(
+        email: email.trim(),
+        password: password.trim(),
+      );
+
+      final user = response.user;
+
+      if (user == null) {
+        Navigator.pop(context);
+        throw Exception("User creation failed. No user returned.");
+      }
+
+      // 2️⃣ Insert extra user data inside users table
+      await supabase.from('users').insert({
+        'id': user.id,
+        'first_name': firstname.trim(),
+        'last_name': lastname.trim(),
+        'phone_number': phoneNumber.trim(),
+        'email': email.trim(),
+        'full_name': '${firstname.trim()} ${lastname.trim()}',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      // Success
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account created successfully.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+        );
+      }
+    } on AuthException catch (e) {
+      if (mounted) Navigator.pop(context);
+      setState(() {
+        errorMessage = e.message;
+        showError = true;
+      });
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      setState(() {
+        errorMessage = "Error: $e";
+        showError = true;
+      });
+    }
   }
 
   @override
@@ -79,67 +140,54 @@ class _RegisterPageState extends State<RegisterPage> {
 
               const SizedBox(height: 30),
 
-              /// FIRSTNAME
               CustomTextField(
                 controller: firstnameController,
                 hint: "Firstname",
                 icon: Icons.person_outline_outlined,
                 onChanged: (value) {
                   setState(() => firstname = value);
-                  if (showError) {
-                    setState(() => showError = false);
-                  }
+                  if (showError) setState(() => showError = false);
                 },
               ),
 
               const SizedBox(height: 30),
 
-              /// LASTNAME
               CustomTextField(
                 controller: lastnameController,
                 hint: "Lastname",
                 icon: Icons.person_outline_outlined,
                 onChanged: (value) {
                   setState(() => lastname = value);
-                  if (showError) {
-                    setState(() => showError = false);
-                  }
+                  if (showError) setState(() => showError = false);
                 },
               ),
 
               const SizedBox(height: 30),
 
-              /// PHONE NUMBER
               CustomTextField(
                 controller: phoneNumberController,
                 hint: "Phone Number",
                 icon: Icons.phone_outlined,
                 onChanged: (value) {
                   setState(() => phoneNumber = value);
-                  if (showError) {
-                    setState(() => showError = false);
-                  }
+                  if (showError) setState(() => showError = false);
                 },
               ),
 
               const SizedBox(height: 30),
 
-              /// EMAIL
               CustomTextField(
                 controller: emailController,
                 hint: "Email",
                 icon: Icons.email_outlined,
                 onChanged: (value) {
                   setState(() => email = value);
-                  if (showError) {
-                    setState(() => showError = false);
-                  }
+                  if (showError) setState(() => showError = false);
                 },
               ),
 
               const SizedBox(height: 30),
 
-              /// PASSWORD
               CustomTextField(
                 controller: passwordController,
                 hint: "Password",
@@ -147,15 +195,12 @@ class _RegisterPageState extends State<RegisterPage> {
                 obscureText: true,
                 onChanged: (value) {
                   setState(() => password = value);
-                  if (showError) {
-                    setState(() => showError = false);
-                  }
+                  if (showError) setState(() => showError = false);
                 },
               ),
 
               const SizedBox(height: 30),
 
-              /// CONFIRM PASSWORD
               CustomTextField(
                 controller: confirmPasswordController,
                 hint: "Confirm Password",
@@ -163,19 +208,15 @@ class _RegisterPageState extends State<RegisterPage> {
                 obscureText: true,
                 onChanged: (value) {
                   setState(() => confirmPassword = value);
-                  if (showError) {
-                    setState(() => showError = false);
-                  }
+                  if (showError) setState(() => showError = false);
                 },
               ),
 
               const SizedBox(height: 20),
 
-              // Error Message Display
               if (showError)
                 Container(
                   padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(top: 10),
                   decoration: BoxDecoration(
                     color: Colors.red.shade50,
                     borderRadius: BorderRadius.circular(8),
@@ -183,11 +224,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.error_outline,
-                        color: Colors.red.shade700,
-                        size: 20,
-                      ),
+                      Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -205,10 +242,9 @@ class _RegisterPageState extends State<RegisterPage> {
 
               const SizedBox(height: 20),
 
-              /// CREATE BUTTON
               GestureDetector(
                 onTap: () async {
-                  // Validation
+                  // VALIDATION
                   if (firstname.isEmpty) {
                     setState(() {
                       errorMessage = 'Please enter your first name';
@@ -241,15 +277,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     return;
                   }
 
-                  if (password.isEmpty) {
-                    setState(() {
-                      errorMessage = 'Please enter a password';
-                      showError = true;
-                    });
-                    return;
-                  }
-
-                  if (password.length < 6) {
+                  if (password.isEmpty || password.length < 6) {
                     setState(() {
                       errorMessage = 'Password must be at least 6 characters';
                       showError = true;
@@ -257,15 +285,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     return;
                   }
 
-                  if (confirmPassword.isEmpty) {
-                    setState(() {
-                      errorMessage = 'Please confirm your password';
-                      showError = true;
-                    });
-                    return;
-                  }
-
-                  if (password != confirmPassword) {
+                  if (confirmPassword.isEmpty || password != confirmPassword) {
                     setState(() {
                       errorMessage = 'Passwords do not match';
                       showError = true;
@@ -273,105 +293,19 @@ class _RegisterPageState extends State<RegisterPage> {
                     return;
                   }
 
-                  try {
-                    // Show loading indicator
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (context) => const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    );
-
-                    // Create user with Firebase Authentication
-                    final newUser = await _auth.createUserWithEmailAndPassword(
-                      email: email.trim(),
-                      password: password.trim(),
-                    );
-
-                    // Save user data to Firestore
-                    if (newUser.user != null) {
-                      String userId = newUser.user!.uid;
-
-                      // Update display name
-                      await newUser.user!.updateDisplayName('$firstname $lastname');
-
-                      // Save to Firestore
-                      await _firestore.collection('users').doc(userId).set({
-                        'firstName': firstname.trim(),
-                        'lastName': lastname.trim(),
-                        'phoneNumber': phoneNumber.trim(),
-                        'email': email.trim(),
-                        'fullName': '${firstname.trim()} ${lastname.trim()}',
-                        'createdAt': FieldValue.serverTimestamp(),
-                        'userId': userId,
-                      });
-
-                      print('User data saved to Firestore successfully!');
-                    }
-
-                    // Close loading dialog
-                    if (mounted) Navigator.pop(context);
-
-                    // Navigate to chat
-                    if (mounted) {
-                      Navigator.pushReplacementNamed(context, '/chat');
-                    }
-                  } on FirebaseAuthException catch (e) {
-                    // Close loading dialog
-                    if (mounted) Navigator.pop(context);
-
-                    String message = '';
-
-                    switch (e.code) {
-                      case 'email-already-in-use':
-                        message = 'This email is already registered';
-                        break;
-                      case 'invalid-email':
-                        message = 'Invalid email format';
-                        break;
-                      case 'weak-password':
-                        message = 'Password is too weak';
-                        break;
-                      case 'operation-not-allowed':
-                        message = 'Registration is currently disabled';
-                        break;
-                      default:
-                        message = e.message ?? 'Registration failed';
-                    }
-
-                    setState(() {
-                      errorMessage = message;
-                      showError = true;
-                    });
-                  } catch (e) {
-                    // Close loading dialog
-                    if (mounted) Navigator.pop(context);
-
-                    print('Error: $e');
-                    setState(() {
-                      errorMessage = 'An error occurred. Please try again';
-                      showError = true;
-                    });
-                  }
+                  await registerUser();
                 },
+
                 child: Container(
                   width: 199,
                   height: 53,
                   decoration: BoxDecoration(
                     boxShadow: const [
-                      BoxShadow(
-                        color: Colors.grey,
-                        blurRadius: 10,
-                        spreadRadius: 2,
-                      )
+                      BoxShadow(color: Colors.grey, blurRadius: 10, spreadRadius: 2)
                     ],
                     borderRadius: BorderRadius.circular(5),
                     gradient: LinearGradient(
-                      colors: [
-                        AppColors.primary,
-                        AppColors.secondary,
-                      ],
+                      colors: [AppColors.primary, AppColors.secondary],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
@@ -391,31 +325,26 @@ class _RegisterPageState extends State<RegisterPage> {
 
               const SizedBox(height: 20),
 
-              /// Already have an account?
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     "Already have an account ?",
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.normal,
-                      fontSize: 14,
-                    ),
+                    style: GoogleFonts.inter(fontSize: 14),
                   ),
                   const SizedBox(width: 5),
                   GestureDetector(
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const LoginPage()),
+                        MaterialPageRoute(builder: (_) => const LoginPage()),
                       );
                     },
                     child: Text(
                       'Sign In',
                       style: GoogleFonts.inter(
-                        fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
