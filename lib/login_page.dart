@@ -8,6 +8,9 @@ import 'package:mindful/widgets/custom_text_field.dart';
 import 'package:mindful/widgets/logo_text.dart';
 import 'chat_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mindful/self_reflection_guide_screen.dart';
+
+import 'forget_password.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -151,34 +154,14 @@ class _LoginPageState extends State<LoginPage> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: GestureDetector(
-                      onTap: () async {
-                        // Handle password reset
-                        if (email.isEmpty) {
-                          setState(() {
-                            errorMessage = 'Please enter your email first';
-                            showError = true;
-                          });
-                          return;
-                        }
-
-                        try {
-                          await supabase.auth.resetPasswordForEmail(
-                            email.trim(),
-                          );
-
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Password reset email sent! Check your inbox'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            _showErrorSnackBar('Failed to send reset email');
-                          }
-                        }
+                      onTap: () {
+                        // Navigate to Forgot Password screen
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ForgotPasswordScreen(),
+                          ),
+                        );
                       },
                       child: Text(
                         'Forgot Password ?',
@@ -241,7 +224,12 @@ class _LoginPageState extends State<LoginPage> {
                         if (response.user != null) {
                           // Login successful
                           if (mounted) {
-                            Navigator.pushNamed(context, '/chat');
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const SelfReflectionGuideScreen(),
+                              ),
+                            );
                           }
                         }
                       } on AuthException catch (e) {
