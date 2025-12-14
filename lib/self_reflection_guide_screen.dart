@@ -11,7 +11,7 @@ class SelfReflectionGuideScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          'MindAuA',
+          'Mindfull Ai',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.w500),
         ),
       ),
