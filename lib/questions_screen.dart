@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:mindful/face_detection.dart';
 import '../models/question_model.dart';
 import '../widgets/question_card.dart';
+import '../services/questionnaire_service.dart';
+// TODO: Update this import path based on your project structure
+// import 'package:mindful/screens/face_detection_screen.dart';
 
 class QuestionsScreen extends StatefulWidget {
   const QuestionsScreen({Key? key}) : super(key: key);
@@ -13,6 +17,7 @@ class _QuestionsScreenState extends State<QuestionsScreen> {
   int currentQuestionIndex = 0;
   final Map<int, String> answers = {};
   final ScrollController _scrollController = ScrollController();
+  final QuestionnaireService _questionnaireService = QuestionnaireService();
 
   final List<Question> questions = [
     Question(
@@ -82,10 +87,39 @@ class _QuestionsScreenState extends State<QuestionsScreen> {
           }
         });
       } else {
-        // All questions answered - show completion
-        _showCompletionDialog();
+        // All questions answered - save and show completion
+        _saveAndComplete();
       }
     });
+  }
+
+  Future<void> _saveAndComplete() async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    // Save answers to database
+    final saved = await _questionnaireService.saveAnswers(answers);
+
+    // Close loading dialog
+    if (mounted) Navigator.pop(context);
+
+    if (saved) {
+      _showCompletionDialog();
+    } else {
+      // Show error
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to save answers. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showCompletionDialog() {
@@ -108,7 +142,13 @@ class _QuestionsScreenState extends State<QuestionsScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop(); // Close dialog
-              Navigator.of(context).pop(); // Return to previous screen
+              // Navigate to face detection screen
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const EmotionDetectionScreen(),
+                ),
+              );
             },
             child: Text(
               'Done',
@@ -124,6 +164,12 @@ class _QuestionsScreenState extends State<QuestionsScreen> {
     );
   }
 
+  // Method to get formatted answers for AI
+  String getFormattedAnswersForAI() {
+    List<String> questionTexts = questions.map((q) => q.text).toList();
+    return _questionnaireService.formatAnswersForAI(answers, questionTexts);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -135,7 +181,7 @@ class _QuestionsScreenState extends State<QuestionsScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'MindAuA',
+          'Mindfull Ai',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.w500),
         ),
       ),
