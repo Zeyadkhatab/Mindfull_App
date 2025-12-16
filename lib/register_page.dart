@@ -294,11 +294,6 @@ class _RegisterPageState extends State<RegisterPage> {
                     return;
                   }
 
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SelfReflectionGuideScreen()),
-                  );
-
                   await registerUser();
                 },
 
