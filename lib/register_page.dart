@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mindful/login_page.dart';
+import 'package:mindful/self_reflection_guide_screen.dart';
 import 'package:mindful/widgets/custom_text_field.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_colors.dart';
@@ -292,6 +293,11 @@ class _RegisterPageState extends State<RegisterPage> {
                     });
                     return;
                   }
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SelfReflectionGuideScreen()),
+                  );
 
                   await registerUser();
                 },
